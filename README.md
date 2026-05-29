@@ -28,7 +28,6 @@ The mispricing signal will then compare current market IV against the ML model's
 
 Planned Extension — Hidden Markov Model (HMM)
 Future iterations will incorporate an HMM to identify market regimes. Initial skeleton implemented in vol_mispricing.py. Instead of using a single flat historical volatility estimate, the model will dynamically adjust its volatility expectations based on the current regime — making the mispricing signal more robust across different market conditions.
-Initial skeleton implemented in vol_mispricing.py.
 
 ------ Data Sources -------
 
