@@ -2,6 +2,7 @@ import numpy as np
 import yfinance as yf
 from scipy.stats import norm
 from scipy.optimize import brentq
+from hmmlearn.hmm import GaussianHMM
 
 # --- 1. MARKET DATA --- #
 
@@ -46,3 +47,14 @@ def implied_volatility(market_price, S, K, T, r, option_type='call'):
         return iv
     except ValueError:
         return None
+    
+# --- EXTENSION --- HMM: MARKET REGIME DETECTION --- #
+
+def fit_market_regime(returns, n_regimes=3):
+    """
+    Fits a Gaussian HMM to identify market regimes (e.g. low vol, high vol, crisis).
+    n_regimes=3 by default — maps to the three regimes described in the README.
+    """
+    model = GaussianHMM(n_components=n_regimes, covariance_type="full", n_iter=100)
+    # TODO: fit model and return regime labels
+    pass
