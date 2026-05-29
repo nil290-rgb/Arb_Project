@@ -1,5 +1,7 @@
 Options Mispricing Detection Using Machine Learning
+
 Project Overview
+
 This project explores whether a machine learning model can learn from historical options data to identify arbitrage opportunities before market correction (price convergence), and whether acting on those signals can be profitable after accounting for transaction costs.
 The core idea: Black-Scholes gives a theoretical option price, but the market doesn't always agree. The gap between what the market implies and what our model expects is the mispricing signal.
 
