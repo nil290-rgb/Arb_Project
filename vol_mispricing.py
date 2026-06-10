@@ -3,6 +3,12 @@ import yfinance as yf
 from scipy.stats import norm
 from scipy.optimize import brentq
 from hmmlearn.hmm import GaussianHMM
+import pandas as pd
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader, TensorDataset
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_squared_error
 
 # --- 1. MARKET DATA --- #
 
@@ -58,12 +64,12 @@ def fit_market_regime(returns, n_regimes=3):
     model = GaussianHMM(n_components=n_regimes, covariance_type="full", n_iter=100,
         random_state=42
     )
-    model.fit(returns_array)
-    regime_labels = model.predict(returns_array)
+    model.fit(returns.reshape(-1, 1))                                
+    regime_labels = model.predict(returns.reshape(-1, 1))                    
  
     # Sort regimes by variance so labels are consistent:
     # 0 = lowest vol, 1 = mid vol, 2 = highest vol (crisis)
-    variances = [np.var(returns_array[regime_labels == i]) for i in range(n_regimes)]
+    variances = [np.var(returns[regime_labels == i]) for i in range(n_regimes)]
     sorted_regimes = np.argsort(variances)
     regime_map = {old: new for new, old in enumerate(sorted_regimes)}
     regime_labels = np.array([regime_map[r] for r in regime_labels])

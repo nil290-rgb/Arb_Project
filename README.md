@@ -1,35 +1,25 @@
-Options Mispricing Detection Using Machine Learning
+# Options Mispricing Detection Using Machine Learning
 
-Project Overview
+## Overview
+Can a machine learning model spot mispriced options before the market corrects? That's the question this project tries to answer.
 
-This project explores whether a machine learning model can learn from historical options data to identify arbitrage opportunities before market correction (price convergence), and whether acting on those signals can be profitable after accounting for transaction costs.
 The core idea: Black-Scholes gives a theoretical option price, but the market doesn't always agree. The gap between what the market implies and what our model expects is the mispricing signal.
 
-How It Works
-Step 1 — Theoretical Benchmark (vol_mispricing.py)
+## How It Works
 
-Pulls historical closing prices for a stock (currently MSFT) using yfinance
-Computes historical volatility from daily returns
-Prices options using the Black-Scholes model given market inputs (spot price, strike, time to expiry, risk-free rate)
-Backs out Implied Volatility (IV) from the observed market price — i.e. what volatility the market is assuming
-Compares IV against historical volatility to flag potential mispricings:
+1. **Market Data** — pulls 2 years of MSFT closing prices via `yfinance`, computes historical volatility
+2. **HMM Regime Detection** — classifies each trading day into one of three market regimes (low vol, high vol, crisis) using a Gaussian Hidden Markov Model
+3. **Synthetic Options** — generates ~18,000 option contracts with regime-dependent noise on top of Black-Scholes prices
+4. **LSTM Model** — trained on 10-day IV surface sequences to predict next-day ATM implied volatility
+5. **Mispricing Signal** — flags options where market IV deviates >5% from the model's prediction as overpriced or underpriced
+6. **Backtesting** — simulates trades on flagged signals, reports P&L, win rate, Sharpe ratio, and max drawdown
 
-IV significantly higher than historical vol → market is overpricing → sell signal
-IV significantly lower than historical vol → market is underpricing → buy signal
+## Data Sources
+- **Prices:** `yfinance` (MSFT, 2-year window)
+- **Options:** Synthetically generated from price history
+- **Planned:** CBOE or OptionMetrics for real IV surface validation
 
-
-
-Step 2 — ML Model (in progress)
-
-Train a machine learning model on historical options data to predict what IV should be given current market conditions
-The model learns patterns that Black-Scholes ignores — volatility skew, term structure, VIX level, and regime-dependent behavior
-The mispricing signal will then compare current market IV against the ML model's prediction rather than raw historical vol — a much stronger and context-aware signal
-
-
-Planned Extension — Hidden Markov Model (HMM)
-Future iterations will incorporate an HMM to identify market regimes. Initial skeleton implemented in vol_mispricing.py. Instead of using a single flat historical volatility estimate, the model will dynamically adjust its volatility expectations based on the current regime — making the mispricing signal more robust across different market conditions.
-
------- Data Sources -------
-
-Stock price history: yfinance (currently MSFT)
-Options data for ML training (Step 2): to be sourced from CBOE historical data, OptionMetrics, or synthetic chains derived from equity price histories
+## Dependencies
+```bash
+uv pip install yfinance hmmlearn scikit-learn torch pandas numpy scipy --system
+```
