@@ -494,26 +494,32 @@ backtest = results.merge(
     test_surface[['date', 'hist_vol']],
     on='date', how='left'
 ).reset_index(drop=True)
-# Approximate market/bs price from IV gap for P&L (surface-level backtesting)
-backtest['market_price'] = backtest['actual_iv'] * 100   # proxy: IV * 100 as price unit
-backtest['bs_price']     = backtest['predicted_iv'] * 100
+
+# Merge ATM option details for Vega calculation
+test_atm = test_surface[['date', 'hist_vol']].copy()
+test_atm['S'] = options_df[options_df['date'].isin(test_surface['date'])].groupby('date')['spot'].first().values[:len(test_surface)]
+test_atm['K'] = test_atm['S']
+test_atm['T'] = 0.25
+
+backtest = results.merge(test_atm, on='date', how='left').reset_index(drop=True)
+
+def compute_vega(S, K, T, r, sigma):
+    if T <= 0 or sigma <= 0:
+        return 0.0
+    d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
+    return S * np.sqrt(T) * (1 / np.sqrt(2 * np.pi)) * np.exp(-0.5 * d1**2)
 
 def compute_pnl(row):
-    signal      = row['signal']
-    market_price = row['market_price']
-    bs_price     = row['bs_price']
-    txn_cost     = TRANSACTION_COST * market_price
-
-    if signal == 'OVERPRICED — consider selling':
-        # Sell at market price, buy back at BS theoretical price
-        pnl = (market_price - bs_price) - txn_cost
-    elif signal == 'UNDERPRICED — consider buying':
-        # Buy at market price, sell at BS theoretical price
-        pnl = (bs_price - market_price) - txn_cost
-    else:
-        pnl = 0.0
-
-    return pnl
+    if row['signal'] == 'FAIRLY PRICED':
+        return 0.0
+    S     = row['S'] if not np.isnan(row['S']) else 400.0
+    K     = row['K'] if not np.isnan(row['K']) else 400.0
+    T     = row['T']
+    sigma = row['hist_vol'] if not np.isnan(row['hist_vol']) else 0.25
+    vega     = compute_vega(S, K, T, 0.05, sigma)
+    iv_gap   = abs(row['iv_gap'])
+    txn_cost = TRANSACTION_COST * vega
+    return vega * iv_gap - txn_cost
 
 backtest['pnl'] = backtest.apply(compute_pnl, axis=1)
 
@@ -529,7 +535,8 @@ backtest['cumulative_pnl'] = backtest['pnl'].cumsum()
 
 # Sharpe ratio (annualised, assuming 252 trading days)
 daily_pnl   = backtest.groupby('date')['pnl'].sum()
-sharpe      = (daily_pnl.mean() / daily_pnl.std()) * np.sqrt(252) if daily_pnl.std() > 0 else 0
+trading_pnl = backtest.loc[backtest['signal'] != 'FAIRLY PRICED', 'pnl']
+sharpe = (trading_pnl.mean() / trading_pnl.std()) * np.sqrt(252) if len(trading_pnl) > 1 and trading_pnl.std() > 0 else 0
 
 # Max drawdown
 cumulative  = backtest['cumulative_pnl']
